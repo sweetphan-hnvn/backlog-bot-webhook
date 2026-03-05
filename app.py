@@ -171,21 +171,32 @@ def health_check():
 def handle_webhook():
     payload = request.json
     
+    print("--- Nhận được Webhook từ Backlog ---")
+    
     if not payload:
+        print("Lỗi: Không có dữ liệu JSON")
         return jsonify({"status": "error", "message": "Invalid JSON"}), 400
 
+    type_event = payload.get("type")
+    print(f"Loại Event: {type_event}")
+
     # Chỉ xử lý event Issue Created (type = 1)
-    if payload.get("type") != 1:
+    if type_event != 1:
+        print("Bỏ qua: Không phải event tạo Issue mới (type != 1)")
         return jsonify({"status": "skipped", "reason": "not issue_created"})
 
     created_user = payload.get("createdUser", {})
     issue        = payload.get("content", {})
+    user_name    = created_user.get("name", "Unknown")
+
+    print(f"Người tạo: {user_name} | Issue ID: {issue.get('id')}")
 
     # ── Kiểm tra user ──────────────────────────────────────────
     if not is_allowed_user(created_user):
+        print(f"Bỏ qua: User '{user_name}' không có trong danh sách cho phép (ALLOWED_USERS).")
         return jsonify({
             "status": "skipped",
-            "reason": f"user '{created_user.get('name')}' not in allowed list",
+            "reason": f"user '{user_name}' not in allowed list",
         })
 
     # ── Lấy thông tin ticket ───────────────────────────────────
