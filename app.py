@@ -1,7 +1,7 @@
 import os
 import json
 import requests
-import openai
+import google.generativeai as genai
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
 
@@ -12,7 +12,7 @@ app = Flask(__name__)
 # ==================== CONFIG ====================
 BACKLOG_API_KEY = os.environ.get("BACKLOG_API_KEY", "YOUR_API_KEY")
 BACKLOG_BASE_URL = os.environ.get("BACKLOG_BASE_URL", "https://YOUR_SPACE.backlog.com/api/v2")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "YOUR_OPENAI_KEY")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "YOUR_GEMINI_API_KEY")
 
 # Danh sách user được trigger auto-translate
 ALLOWED_USERS = [
@@ -67,8 +67,8 @@ def analyze_and_translate(summary: str, description: str) -> dict:
     3. Đề xuất Next Action
     Trả về dict: { "translation": str, "category": str, "next_action": str }
     """
-    # Khởi tạo OpenAI client (Lưu ý thư viện openai 1.x)
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    # Khởi tạo Gemini client
+    genai.configure(api_key=GEMINI_API_KEY)
 
     # Build danh sách category + mô tả để GPT hiểu rule
     rule_descriptions = "\n".join(
@@ -94,13 +94,11 @@ Trả về JSON hợp lệ theo đúng format sau (không thêm gì ngoài JSON)
   "next_action": "<các bước next action>"
 }}"""
 
-    response = client.chat.completions.create(
-        model="gpt-4o", # Sử dụng gpt-4o tốt hơn gpt-4 cho việc tạo JSON
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,  # Giảm temperature để phân loại ổn định hơn
-    )
+    # Chọn model gemini-1.5-flash (rẻ, nhanh, xịn ngang gpt-4o-mini)
+    model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"temperature": 0.2})
+    response = model.generate_content(prompt)
 
-    raw = response.choices[0].message.content.strip()
+    raw = response.text.strip()
 
     # Thường GPT có thể trả về JSON bọc trong markdown ```json ... ```, do đó loại bỏ chúng nếu có:
     if raw.startswith("```json"):
